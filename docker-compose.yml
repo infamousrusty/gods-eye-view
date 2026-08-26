@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  gods-eye-view:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gods-eye-view
+    restart: unless-stopped
+    ports:
+      - "4173:80"
+    env_file:
+      - stack.env
