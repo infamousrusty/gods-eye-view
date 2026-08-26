@@ -1,7 +1,7 @@
 # ---- Build stage ----
 FROM node:24-alpine AS builder
 
-# Accept build arguments (for inline client‑side env vars, if any)
+# Declare all build arguments (your full list)
 ARG GOOGLE_MAPS_API_KEY
 ARG CESIUM_ION_TOKEN
 ARG OPENAI_API_KEY
@@ -25,12 +25,14 @@ ARG FIRMS_MAP_KEY
 
 WORKDIR /app
 
+# Copy package files and install
 COPY package*.json ./
 RUN npm ci
 
+# Copy source
 COPY . .
 
-# Write .env for Vite to inline (if it uses import.meta.env)
+# ---- Create .env file from build arguments ----
 RUN echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY" > .env && \
     echo "CESIUM_ION_TOKEN=$CESIUM_ION_TOKEN" >> .env && \
     echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> .env && \
@@ -52,30 +54,22 @@ RUN echo "GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY" > .env && \
     echo "TOMTOM_API_KEY=$TOMTOM_API_KEY" >> .env && \
     echo "FIRMS_MAP_KEY=$FIRMS_MAP_KEY" >> .env
 
-# Build the client bundle
+# Build the app (it will read .env)
 RUN npm run build
 
 # ---- Production stage ----
-FROM node:24-alpine
+FROM nginx:alpine
 
-WORKDIR /app
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy built client files and server files
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/server ./server  # if server code is in a 'server' folder
-# If server entry is at root, also copy that:
-COPY --from=builder /app/index.js ./
-# Or if there's a specific server file, adjust accordingly
+RUN echo 'server { \
+    listen 80; \
+    location / { \
+        root /usr/share/nginx/html; \
+        index index.html; \
+        try_files $uri $uri/ /index.html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
 
-# Install only production dependencies (including any server dependencies)
-RUN npm ci --omit=dev
-
-# Copy the .env file from builder (or we can set environment variables at runtime)
-COPY --from=builder /app/.env ./.env
-
-# Expose the port (defined in .env, default 4173)
-EXPOSE 4173
-
-# Start the Node server (adjust the command to match your server entry)
-CMD ["npm", "start"]
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
