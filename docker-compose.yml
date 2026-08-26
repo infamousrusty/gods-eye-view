@@ -1,10 +1,10 @@
 services:
   gods-eye-view:
-    image: ghcr.io/bilawalsidhu/gods-eye-view:latest
-    # Or build from source:
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
+    # image: ghcr.io/bilawalsidhu/gods-eye-view:latest
+    
+    build:
+      context: .
+      dockerfile: Dockerfile
 
     container_name: gods-eye-view
     restart: unless-stopped
